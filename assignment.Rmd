@@ -2,7 +2,9 @@
 title: "Prediction Assignment"
 date: "July 21, 2016"
 author: Vadim K
-output: html_document
+output: 
+  html_document: 
+    keep_md: yes
 ---
 
 ##Introduction
@@ -21,9 +23,10 @@ Start by downloading the data and reading it into the R as a dataframe
 ```{r setup, warning=FALSE, cache=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 
+set.seed(1234)
 library(caret)
-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "training.csv")
-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "testing.csv")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "training.csv")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "testing.csv")
 
 training <- read.csv("training.csv")
 testing <- read.csv("testing.csv")
@@ -58,7 +61,7 @@ testing <- testing[, !(names(testing) %in% b)]
 
 ##Analysis
 
-Now, we are ready to build the prediction model. Since the desired prediction is a qualatative variable, it would be appropriate to apply Random Forest method. To do the model let's split the Training dataset into 2 subsets: one for model building and the second for validation.
+Now, we are ready to build the prediction model. Since the desired prediction is a qualatative variable, it would be appropriate to apply the Random Forest method. To do the model let's split the Training dataset into 2 subsets: one for model building and the second for cross validation. We will train the model on the training set (70% of the sample data) and validate with the validation set (30% of the sample data) to understand the accuracy of the model and the out of sample error.
 ```{r, cache = TRUE, warning = FALSE}
 library(caret)
 inBuild <- createDataPartition(y=training$classe, p=0.7, list=FALSE)
@@ -66,11 +69,18 @@ validation <- training[-inBuild,]; train <- training[inBuild,]
 
 fitRF <- train(classe ~ ., method = "rf", data = train, trControl = trainControl(method="cv" ,number=3))
 
+predRF.in <- predict(fitRF, train)
+confusionMatrix(predRF.in, train$classe)$overall['Accuracy']
+insampleError <- 1 - sum(predRF.in == train$classe)/nrow(train)
+print(insampleError)
+
 predRF <- predict(fitRF, validation)
 confusionMatrix(predRF, validation$classe)$overall['Accuracy']
+outsampleError <- 1 - sum(predRF == validation$classe)/nrow(validation)
+print(outsampleError)
 ```
 
-It looks as if the model provides an extremely good accuracy. Let's take a look at the confusion matrix in full
+It looks as if the model provides an extremely good accuracy on cross validation and low out of sample error. Let's take a look at the confusion matrix in full
 ```{r}
 confusionMatrix(predRF, validation$classe)
 ```

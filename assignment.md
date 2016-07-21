@@ -19,9 +19,10 @@ Start by downloading the data and reading it into the R as a dataframe
 ```r
 knitr::opts_chunk$set(echo = TRUE)
 
+set.seed(1234)
 library(caret)
-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "training.csv")
-download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "testing.csv")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "training.csv")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "testing.csv")
 
 training <- read.csv("training.csv")
 testing <- read.csv("testing.csv")
@@ -63,7 +64,7 @@ testing <- testing[, !(names(testing) %in% b)]
 
 ##Analysis
 
-Now, we are ready to build the prediction model. Since the desired prediction is a qualatative variable, it would be appropriate to apply Random Forest method. To do the model let's split the Training dataset into 2 subsets: one for model building and the second for validation.
+Now, we are ready to build the prediction model. Since the desired prediction is a qualatative variable, it would be appropriate to apply the Random Forest method. To do the model let's split the Training dataset into 2 subsets: one for model building and the second for cross validation. We will train the model on the training set (70% of the sample data) and validate with the validation set (30% of the sample data) to understand the accuracy of the model and the out of sample error.
 
 ```r
 library(caret)
@@ -72,16 +73,44 @@ validation <- training[-inBuild,]; train <- training[inBuild,]
 
 fitRF <- train(classe ~ ., method = "rf", data = train, trControl = trainControl(method="cv" ,number=3))
 
+predRF.in <- predict(fitRF, train)
+confusionMatrix(predRF.in, train$classe)$overall['Accuracy']
+```
+
+```
+## Accuracy 
+##        1
+```
+
+```r
+insampleError <- 1 - sum(predRF.in == train$classe)/nrow(train)
+print(insampleError)
+```
+
+```
+## [1] 0
+```
+
+```r
 predRF <- predict(fitRF, validation)
 confusionMatrix(predRF, validation$classe)$overall['Accuracy']
 ```
 
 ```
 ##  Accuracy 
-## 0.9909941
+## 0.9921835
 ```
 
-It looks as if the model provides an extremely good accuracy. Let's take a look at the confusion matrix in full
+```r
+outsampleError <- 1 - sum(predRF == validation$classe)/nrow(validation)
+print(outsampleError)
+```
+
+```
+## [1] 0.007816483
+```
+
+It looks as if the model provides an extremely good accuracy on cross validation and low out of sample error. Let's take a look at the confusion matrix in full
 
 ```r
 confusionMatrix(predRF, validation$classe)
@@ -92,33 +121,33 @@ confusionMatrix(predRF, validation$classe)
 ## 
 ##           Reference
 ## Prediction    A    B    C    D    E
-##          A 1668    9    0    0    0
-##          B    2 1128    5    0    0
-##          C    4    2 1021   23    0
-##          D    0    0    0  941    8
-##          E    0    0    0    0 1074
+##          A 1673    8    0    0    0
+##          B    0 1126    6    0    0
+##          C    1    5 1017   12    3
+##          D    0    0    3  951    7
+##          E    0    0    0    1 1072
 ## 
 ## Overall Statistics
 ##                                           
-##                Accuracy : 0.991           
-##                  95% CI : (0.9882, 0.9932)
+##                Accuracy : 0.9922          
+##                  95% CI : (0.9896, 0.9943)
 ##     No Information Rate : 0.2845          
 ##     P-Value [Acc > NIR] : < 2.2e-16       
 ##                                           
-##                   Kappa : 0.9886          
+##                   Kappa : 0.9901          
 ##  Mcnemar's Test P-Value : NA              
 ## 
 ## Statistics by Class:
 ## 
 ##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9964   0.9903   0.9951   0.9761   0.9926
-## Specificity            0.9979   0.9985   0.9940   0.9984   1.0000
-## Pos Pred Value         0.9946   0.9938   0.9724   0.9916   1.0000
-## Neg Pred Value         0.9986   0.9977   0.9990   0.9953   0.9983
+## Sensitivity            0.9994   0.9886   0.9912   0.9865   0.9908
+## Specificity            0.9981   0.9987   0.9957   0.9980   0.9998
+## Pos Pred Value         0.9952   0.9947   0.9798   0.9896   0.9991
+## Neg Pred Value         0.9998   0.9973   0.9981   0.9974   0.9979
 ## Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
-## Detection Rate         0.2834   0.1917   0.1735   0.1599   0.1825
-## Detection Prevalence   0.2850   0.1929   0.1784   0.1613   0.1825
-## Balanced Accuracy      0.9971   0.9944   0.9946   0.9873   0.9963
+## Detection Rate         0.2843   0.1913   0.1728   0.1616   0.1822
+## Detection Prevalence   0.2856   0.1924   0.1764   0.1633   0.1823
+## Balanced Accuracy      0.9988   0.9937   0.9935   0.9922   0.9953
 ```
 
 Lastly, let's use the model to predict the results on the 20 test cases
